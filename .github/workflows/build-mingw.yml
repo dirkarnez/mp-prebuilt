@@ -1,0 +1,44 @@
+name: cpp-cmake-mingw-prebuilt-release-actions-workflow
+on:
+  push:
+    # Sequence of patterns matched against refs/tags
+    tags:
+      - 'v*' # Push events to matching v*, i.e. v1.0, v20.15.10
+      - 'c*'
+jobs:
+  build:
+    name: Create Release
+    runs-on: windows-2019
+    env:
+      libraryName: mp
+      cmakeInstallationPath: mp-installation
+      tagName: 3.1.0 # target tag
+      mingwTargetZip: mp-${{ github.ref_name }}-x86_64-posix-seh-rev0-8.1.0.zip
+    steps:
+      - name: check mingw version
+        run: gcc --version
+        
+      - name: git clone
+        shell: cmd
+        run: git clone --recursive https://github.com/ampl/mp.git && cd mp && git checkout ${{ env.tagName }}
+        
+      - name: cmake
+        shell: cmd
+        run: |
+          cd gsl &&^
+          cmake.exe -G"MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DCMAKE_INSTALL_PREFIX="build/${{ env.libraryName }}" -B./build &&^
+          cd build && cmake --build . && cmake --install .
+          
+      - name: Archive Release
+        uses: thedoctor0/zip-release@master
+        with:
+          type: 'zip'
+          directory: "mp/build/${{ env.libraryName }}"
+          filename: "${{ env.mingwTargetZip }}"
+          
+      - name: Release prebuilt
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: "mp/build/${{ env.libraryName }}/${{ env.mingwTargetZip }}"
+          allowUpdates: true
+          token: ${{ secrets.GITHUB_TOKEN }}
